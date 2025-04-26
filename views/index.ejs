@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Blog</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="title">
+        <h1 id="title" > Blog</h1>
+    </header>
+    <hr>
+    <div class="form">
+        <h2> Enter your text: </h2>
+        <form id="form" action="/submit" method="POST">
+            <label for="blogpost"></label><br>
+            <textarea id="blogpost" name="blogpost" placeholder="Enter text" rows="3" cols="30"></textarea>
+            <input id="submit" type="submit" value="Submit">
+        </form>
+    </div>
+    <hr>
+    <div class="posts">
+    <h2> Your posts: </h2>
+    <% posts.forEach((post) => {%>
+      <ul>
+        <li>
+          <% if(locals.editmode && locals.posttoedit && locals.posttoedit.id === post.id){ %>
+            <form action="/update/<%= post.id %>" method="POST">
+              <textarea name="editedpost" rows="3" cols="30"><%= post.content %></textarea>
+              <button type="submit">OK</button>
+            </form>
+          <% } else {%>
+            <p><%= post.content %> </p>
+            <form action="/edit/<%= post.id %>" method="POST">
+              <button type="submit">Edit</button>
+            </form>
+          <% } %>
+      
+      <form id="delete" action="/delete/<%= post.id %>" method="POST">
+        <input type="hidden" name="_method" value="DELETE"> <!-- Override POST to DELETE -->
+        <button type="submit" style="color: red;">Delete</button>
+      </form>
+        </li>
+        
+      </ul>
+        
+    <% }) %>
+    </div>
+    
+  </body>
+</html>
