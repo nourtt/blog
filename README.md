@@ -1,7 +1,7 @@
 # Simple Blog
 
 ## Description
-A simple blog website with user registration, user authorization, creation, edition and deletion of posts.
+A simple blog website with user registration, user authorization, creation, edition and deletion of posts. This project was done in December 2024 and published in April 2025
 
 ## Stack
 - Node.js
