@@ -25,6 +25,11 @@ app.use(session({
     resave: false,
     saveUninitialized: true
 }))
+function ensureAuth(req, res, next){
+    if (req.isAuthenticated()) return next();
+    res.redirect("/login")
+}
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 app.use(methodOverride("_method"));
@@ -42,23 +47,25 @@ app.post("/register", async(req, res) =>{
     try{
         const check = await db.query("SELECT * FROM users WHERE email = $1", [email]);
         if (check.rows.length > 0){
-            res.redirect("/login");
+            return res.redirect("/login");
         } else {
             bcrypt.hash(password, round, async(err, hash) => {
                 if(err){
                     console.error("ERROR hashing password");
+                    return res.redirect("/register")
                 } else{
                     const result = await db.query("INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *", [email, hash]);
                     const user = result.rows[0];
                     req.login(user, (err) => {
                         console.log("success");
-                        res.redirect("/home");
+                        return res.redirect("/home");
                     });
                 }
             });
         }
     } catch (err){
         console.log(err);
+        return res.redirect("/register")
     }
 })
 app.get("/login", (req, res) => {
@@ -69,22 +76,17 @@ app.post("/login", passport.authenticate("local", {
       failureRedirect: "/login",
     })
 );
-app.get("/home", async (req, res) => {
-    if (req.isAuthenticated()){
-        try{
-        
-            const query = await db.query("SELECT posts.id, posts.content FROM posts JOIN users ON posts.userid = users.id WHERE users.email = $1" , [req.user.email]);
-            const posts = query.rows;
-            res.render("index.ejs", {
-                posts: posts
-            });
-        } catch (err){
-            console.log(err)
-        }
-    } else{
+app.get("/home", ensureAuth, async (req, res) => {
+    try{
+        const query = await db.query("SELECT posts.id, posts.content FROM posts JOIN users ON posts.userid = users.id WHERE users.email = $1" , [req.user.email]);
+        const posts = query.rows;
+        res.render("index.ejs", {
+            posts: posts
+        });
+    } catch (err){
+        console.log(err)
         res.redirect("/login");
     }
-    
 })
 
 app.post("/delete/:id", async (req, res) => {
@@ -92,7 +94,7 @@ app.post("/delete/:id", async (req, res) => {
     const postIndex = await db.query("SELECT * FROM posts WHERE posts.id = $1", [id]); 
 
     if (postIndex.rows[0] !== undefined) {
-        const q = await db.query("DELETE FROM posts WHERE posts.id = $1", [id]); 
+        await db.query("DELETE FROM posts WHERE posts.id = $1", [id]); 
     }
     res.redirect("/home")
     
@@ -103,7 +105,7 @@ app.post("/update/:id", async (req, res) => {
         const result = req.body.editedpost;
         const postIndex = await db.query("SELECT * FROM posts WHERE posts.id = $1", [id]);
         if (postIndex.rows[0] !== undefined) {
-            const upd = await db.query("UPDATE posts SET content = $1 WHERE posts.id = $2", [result, id])
+            await db.query("UPDATE posts SET content = $1 WHERE posts.id = $2", [result, id])
         }
         res.redirect("/home")
     } catch(err){
@@ -116,13 +118,17 @@ app.post("/edit/:id", async (req, res) => {
         const posttoedit = await db.query("SELECT * FROM posts WHERE posts.id = $1", [id]);
         const query = await db.query("SELECT posts.id, posts.content FROM posts JOIN users ON posts.userid = users.id WHERE users.email = $1", [req.user.email])
         const posts = query.rows;
+        if (query.rows.length === 0){
+            return res.redirect("/home");
+        }
         res.render("index.ejs", {
             posts: posts,
             editmode: true,
             posttoedit: posttoedit.rows[0]
         })
     } catch (err){
-        console.log(err);
+        console.error(err);
+        res.redirect("/home")
     }
     
 })
@@ -130,11 +136,8 @@ app.post("/edit/:id", async (req, res) => {
 
 app.post("/submit", async (req, res) => {
     try{
-        const id = await db.query("SELECT id FROM users WHERE email = $1", [req.user.email]);
-        console.log(id.rows[0]);
-        const query = await db.query("INSERT INTO posts (content, userid) VALUES ($1, $2)", [req.body.blogpost, id.rows[0].id]);
-        
-
+        const usr = await db.query("SELECT id FROM users WHERE email = $1", [req.user.email]);
+        const query = await db.query("INSERT INTO posts (content, userid) VALUES ($1, $2)", [req.body.blogpost, usr.rows[0].id]);
         res.redirect("/home");
     } catch(err){
         console.log(err)
